@@ -135,7 +135,7 @@ if 'generated_song' not in st.session_state:
 client = None
 if OPENAI_API_KEY and APP_MODE == "production":
     try:
-        openai.api_key = OPENAI_API_KEY
+        #openai.api_key = OPENAI_API_KEY
         client = OpenAI(api_key=OPENAI_API_KEY)
     except Exception as e:
         print(f"Warning: Failed to initialize OpenAI client: {e}")
