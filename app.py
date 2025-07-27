@@ -1,5 +1,5 @@
 import streamlit as st
-import openai
+from openai import OpenAI
 import time
 import random
 import requests
