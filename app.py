@@ -133,11 +133,14 @@ if 'generated_song' not in st.session_state:
     st.session_state.generated_song = None
 
 # OpenAI client setup
+client = None
 if OPENAI_API_KEY and APP_MODE == "production":
-    openai.api_key = OPENAI_API_KEY
-    client = OpenAI(api_key=OPENAI_API_KEY)
-else:
-    client = None
+    try:
+        openai.api_key = OPENAI_API_KEY
+        client = OpenAI(api_key=OPENAI_API_KEY)
+    except Exception as e:
+        print(f"Warning: Failed to initialize OpenAI client: {e}")
+        # App will fall back to test mode if client initialization fails
 
 # Sample data for test mode
 SAMPLE_IMAGES = [
@@ -251,7 +254,7 @@ Format the response in markdown with the following structure:
 Focus on themes like innovation, unity, resilience, and championship mentality. Make it aspirational and community-focused."""
         
         response = openai.chat.completions.create(
-            model="gpt-4.1",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a professional marketing strategist creating campaign briefs for sports teams. Write compelling, emotionally engaging content in markdown format."},
                 {"role": "user", "content": prompt}
@@ -277,7 +280,7 @@ def generate_images(brief, count=1):  # Changed to generate just 1 image
         
         # First, use GPT-4.1 to summarize the brief into a single concise image prompt
         summary_response = openai.chat.completions.create(
-            model="gpt-4.1",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are an expert at creating concise, visual image prompts for marketing campaigns. Convert the campaign brief into one powerful, detailed image prompt that captures the essence of the campaign."},
                 {"role": "user", "content": f"Convert this campaign brief into ONE powerful image prompt for a marketing visual:\n\n{brief}\n\nThe prompt should be 1-2 sentences, highly visual and descriptive, perfect for generating a stunning marketing campaign image."}
