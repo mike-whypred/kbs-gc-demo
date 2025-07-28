@@ -404,6 +404,9 @@ def generate_images(brief, count=1):  # Changed to generate just 1 image
                             
                             if image_url:
                                 st.session_state.debug_info.append(f"🎉 SUCCESS! Returning Leonardo AI image")
+                                st.session_state.debug_info.append(f"📎 Image URL: {image_url}")
+                                st.session_state.debug_info.append(f"🔍 URL Type: {type(image_url)}")
+                                st.session_state.debug_info.append(f"📏 URL Length: {len(str(image_url))}")
                                 print(f"DEBUG: Successfully returning Leonardo AI image: {image_url}")
                                 return [image_url]
                             else:
@@ -589,7 +592,27 @@ def image_selection_page():
     if st.session_state.images and len(st.session_state.images) > 0:
         col1, col2, col3 = st.columns([0.5, 3, 0.5])
         with col2:
-            st.image(st.session_state.images[0]["url"], caption="Campaign Visual", use_container_width=True)
+            try:
+                image_url = st.session_state.images[0]["url"]
+                
+                # Debug: Show the URL we're trying to use
+                if st.session_state.debug_info:
+                    st.session_state.debug_info.append(f"🖼️ Attempting to display image URL: {image_url}")
+                
+                # Validate URL
+                if image_url and isinstance(image_url, str) and len(image_url.strip()) > 0:
+                    st.image(image_url, caption="Campaign Visual", use_container_width=True)
+                else:
+                    st.error("❌ Invalid image URL received from Leonardo AI")
+                    st.write(f"URL received: {repr(image_url)}")
+                    # Fallback to a sample image
+                    st.image(SAMPLE_IMAGES[0], caption="Campaign Visual (Sample)", use_container_width=True)
+                    
+            except Exception as e:
+                st.error(f"❌ Error displaying image: {str(e)}")
+                st.write(f"Image URL: {repr(st.session_state.images[0].get('url', 'No URL'))}")
+                # Fallback to a sample image
+                st.image(SAMPLE_IMAGES[0], caption="Campaign Visual (Sample)", use_container_width=True)
         
         # Automatically select the single image
         st.session_state.selected_images = [st.session_state.images[0]]
@@ -677,7 +700,16 @@ def final_campaign_page():
     if st.session_state.selected_images and len(st.session_state.selected_images) > 0:
         col1, col2, col3 = st.columns([0.5, 3, 0.5])
         with col2:
-            st.image(st.session_state.selected_images[0]["url"], caption="Campaign Visual", use_container_width=True)
+            try:
+                image_url = st.session_state.selected_images[0]["url"]
+                if image_url and isinstance(image_url, str) and len(image_url.strip()) > 0:
+                    st.image(image_url, caption="Campaign Visual", use_container_width=True)
+                else:
+                    st.error("❌ Invalid image URL")
+                    st.image(SAMPLE_IMAGES[0], caption="Campaign Visual (Sample)", use_container_width=True)
+            except Exception as e:
+                st.error(f"❌ Error displaying image: {str(e)}")
+                st.image(SAMPLE_IMAGES[0], caption="Campaign Visual (Sample)", use_container_width=True)
     
     st.markdown("---")
     
