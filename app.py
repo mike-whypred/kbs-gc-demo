@@ -130,6 +130,8 @@ if 'selected_genre' not in st.session_state:
     st.session_state.selected_genre = None
 if 'generated_song' not in st.session_state:
     st.session_state.generated_song = None
+if 'debug_info' not in st.session_state:
+    st.session_state.debug_info = []
 
 # OpenAI client setup
 client = None
@@ -252,13 +254,13 @@ Format the response in markdown with the following structure:
 
 Focus on themes like innovation, unity, resilience, and championship mentality. Make it aspirational and community-focused."""
         
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
+        response = client.chat.completions.create(
+            model="gpt-4.1",
             messages=[
                 {"role": "system", "content": "You are a professional marketing strategist creating campaign briefs for sports teams. Write compelling, emotionally engaging content in markdown format."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=1000,
+            max_tokens=500,
             temperature=0.7
         )
         
@@ -268,17 +270,31 @@ Focus on themes like innovation, unity, resilience, and championship mentality. 
         return generate_brief(team_name, brief_type)  # Fallback to test mode
 
 def generate_images(brief, count=1):  # Changed to generate just 1 image
+    # Clear previous debug info
+    st.session_state.debug_info = []
+    
     if APP_MODE == "test":
+        st.session_state.debug_info.append("🧪 Running in TEST mode - using sample images")
         time.sleep(4)  # Simulate API delay
         random.shuffle(SAMPLE_IMAGES)
         return SAMPLE_IMAGES[:1]  # Return just 1 image in test mode
     
-    # Production mode - use GPT-4.1 for prompt and Leonardo AI for image generation
+    # Debug: Check configuration
+    st.session_state.debug_info.append(f"📊 APP_MODE = {APP_MODE}")
+    st.session_state.debug_info.append(f"🔑 Leonardo API Key Present: {'Yes' if LEONARDO_API_KEY else 'No'}")
+    st.session_state.debug_info.append(f"📏 Leonardo API Key Length: {len(LEONARDO_API_KEY) if LEONARDO_API_KEY else 0}")
+    
+    print(f"DEBUG: APP_MODE = {APP_MODE}")
+    print(f"DEBUG: LEONARDO_API_KEY present = {'Yes' if LEONARDO_API_KEY else 'No'}")
+    print(f"DEBUG: LEONARDO_API_KEY length = {len(LEONARDO_API_KEY) if LEONARDO_API_KEY else 0}")
+    
+    # Production mode - use GPT-4o-mini for prompt and Leonardo AI for image generation
     try:
         team_name = brief.split('\n')[0].replace('# ', '')
         
-        # First, use GPT-4.1 to summarize the brief into a single concise image prompt
-        summary_response = openai.chat.completions.create(
+        # First, use GPT-4o-mini to summarize the brief into a single concise image prompt
+        st.session_state.debug_info.append("🤖 Generating image prompt with GPT-4o-mini...")
+        summary_response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are an expert at creating concise, visual image prompts for marketing campaigns. Convert the campaign brief into one powerful, detailed image prompt that captures the essence of the campaign."},
@@ -290,13 +306,16 @@ def generate_images(brief, count=1):  # Changed to generate just 1 image
         
         # Get the prompt from the response
         prompt = summary_response.choices[0].message.content.strip()
+        st.session_state.debug_info.append(f"✅ Generated prompt: {prompt}")
         
         # If the prompt is empty or too short, use a fallback
         if not prompt or len(prompt) < 20:
             prompt = f"Professional sports marketing poster featuring {team_name}, dynamic action shot with team colors, championship trophy, energetic crowd in background, high-quality stadium lighting, inspirational and powerful composition"
+            st.session_state.debug_info.append("⚠️ Using fallback prompt")
         
         # Add marketing campaign prefix to the prompt
         prompt = f"Create a marketing campaign for {prompt}"
+        st.session_state.debug_info.append(f"🎯 Final prompt: {prompt}")
         
         # Use Leonardo AI for image generation
         leonardo_url = "https://cloud.leonardo.ai/api/rest/v1/generations"
@@ -319,22 +338,32 @@ def generate_images(brief, count=1):  # Changed to generate just 1 image
         }
         
         # Make the API request to Leonardo AI
+        st.session_state.debug_info.append("🎨 Sending request to Leonardo AI...")
+        print(f"DEBUG: Making Leonardo AI request to {leonardo_url}")
+        print(f"DEBUG: Request data = {data}")
         response = requests.post(leonardo_url, headers=headers, json=data)
+        
+        st.session_state.debug_info.append(f"📡 Leonardo AI Response Status: {response.status_code}")
+        print(f"DEBUG: Leonardo AI response status = {response.status_code}")
+        print(f"DEBUG: Leonardo AI response = {response.text[:500]}...")
         
         if response.status_code == 200:
             response_data = response.json()
             generation_id = response_data.get("sdGenerationJob", {}).get("generationId")
             
             if generation_id:
+                st.session_state.debug_info.append(f"🔗 Generation ID: {generation_id}")
                 # Poll for completion - try multiple times with longer waits
                 max_attempts = 6
                 for attempt in range(max_attempts):
                     time.sleep(5)  # Wait 5 seconds between checks
+                    st.session_state.debug_info.append(f"⏳ Polling attempt {attempt + 1}/{max_attempts}")
                     
                     # Get the generated image
                     get_url = f"https://cloud.leonardo.ai/api/rest/v1/generations/{generation_id}"
                     get_response = requests.get(get_url, headers=headers)
                     
+                    st.session_state.debug_info.append(f"📥 Poll Status: {get_response.status_code}")
                     if get_response.status_code == 200:
                         generation_data = get_response.json()
                         
@@ -348,29 +377,60 @@ def generate_images(brief, count=1):  # Changed to generate just 1 image
                             generated_images = generation_data["images"]
                         
                         if generated_images and len(generated_images) > 0:
+                            st.session_state.debug_info.append(f"🖼️ Found {len(generated_images)} generated images")
+                            print(f"DEBUG: Found {len(generated_images)} generated images")
+                            print(f"DEBUG: First image object: {generated_images[0]}")
+                            
                             # Try different possible URL fields
                             image_url = None
                             first_image = generated_images[0]
                             
                             if "url" in first_image:
                                 image_url = first_image["url"]
+                                st.session_state.debug_info.append(f"✅ Found URL in 'url' field")
+                                print(f"DEBUG: Found URL in 'url' field: {image_url}")
                             elif "image_url" in first_image:
                                 image_url = first_image["image_url"]
+                                st.session_state.debug_info.append(f"✅ Found URL in 'image_url' field")
+                                print(f"DEBUG: Found URL in 'image_url' field: {image_url}")
                             elif "imageUrl" in first_image:
                                 image_url = first_image["imageUrl"]
+                                st.session_state.debug_info.append(f"✅ Found URL in 'imageUrl' field")
+                                print(f"DEBUG: Found URL in 'imageUrl' field: {image_url}")
+                            else:
+                                available_keys = list(first_image.keys())
+                                st.session_state.debug_info.append(f"❌ No URL found. Available keys: {available_keys}")
+                                print(f"DEBUG: No URL found in image object. Available keys: {available_keys}")
                             
                             if image_url:
+                                st.session_state.debug_info.append(f"🎉 SUCCESS! Returning Leonardo AI image")
+                                print(f"DEBUG: Successfully returning Leonardo AI image: {image_url}")
                                 return [image_url]
+                            else:
+                                st.session_state.debug_info.append("❌ No valid image URL found")
+                                print("DEBUG: No valid image URL found")
+                        else:
+                            st.session_state.debug_info.append("❌ No generated images found in response")
+                            print("DEBUG: No generated images found in response")
                     
                     # If this is the last attempt, break
                     if attempt == max_attempts - 1:
+                        st.session_state.debug_info.append("⏰ Reached maximum polling attempts")
                         break
+            else:
+                st.session_state.debug_info.append("❌ No generation ID received from Leonardo AI")
+        else:
+            st.session_state.debug_info.append(f"❌ Leonardo AI API Error: {response.text}")
         
         # If Leonardo AI fails, return a sample image
+        st.session_state.debug_info.append("🔄 Leonardo AI failed - using sample image as fallback")
+        print("DEBUG: Leonardo AI failed - using sample image")
         return [SAMPLE_IMAGES[0]]
         
     except Exception as e:
         # Fallback to test mode
+        st.session_state.debug_info.append(f"💥 Exception occurred: {str(e)}")
+        print(f"DEBUG: Exception occurred: {e}")
         random.shuffle(SAMPLE_IMAGES)
         return [SAMPLE_IMAGES[0]]
 
@@ -512,6 +572,18 @@ def image_selection_page():
     st.markdown('<div class="main-header">🎨 Your Campaign Visual</div>', unsafe_allow_html=True)
     st.markdown('<div class="powered-by">Powered by Leonardo AI</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="sub-header">AI-generated marketing visual for <strong>{st.session_state.team_name}</strong></div>', unsafe_allow_html=True)
+    
+    # Show debug info if available
+    if st.session_state.debug_info:
+        with st.expander("🔧 Generation Debug Info", expanded=False):
+            for info in st.session_state.debug_info:
+                st.write(info)
+            
+            # Check if this was a fallback to sample image
+            if any("sample image as fallback" in info for info in st.session_state.debug_info):
+                st.error("⚠️ Leonardo AI generation failed - showing sample image instead")
+            elif any("TEST mode" in info for info in st.session_state.debug_info):
+                st.info("ℹ️ Running in test mode - using sample images")
     
     # Since we only generate one image now, display it and auto-proceed
     if st.session_state.images and len(st.session_state.images) > 0:
