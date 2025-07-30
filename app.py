@@ -447,10 +447,10 @@ def generate_song(genre):
     
     # Production mode - select from S3
     song_library = {
-        'rock-anthem': [f"{S3_BUCKET_URL}/rock-anthem-{i}.mp3" for i in range(1, 5)],
-        'electronic-hype': [f"{S3_BUCKET_URL}/electronic-hype-{i}.mp3" for i in range(1, 5)],
-        'orchestral-epic': [f"{S3_BUCKET_URL}/orchestral-epic-{i}.mp3" for i in range(1, 5)],
-        'inspirational-pop': [f"{S3_BUCKET_URL}/inspirational-pop-{i}.mp3" for i in range(1, 5)]
+        'rock-anthem': [f"{S3_BUCKET_URL}/rock-anthem-{i}.mp3" for i in range(1, 11)],
+        'electronic-hype': [f"{S3_BUCKET_URL}/electronic-hype-{i}.mp3" for i in range(1, 11)],
+        'orchestral-epic': [f"{S3_BUCKET_URL}/orchestral-epic-{i}.mp3" for i in range(1, 11)],
+        'inspirational-pop': [f"{S3_BUCKET_URL}/inspirational-pop-{i}.mp3" for i in range(1, 11)]
     }
     
     time.sleep(6)  # Simulate generation delay for dramatic effect
